@@ -77,14 +77,16 @@ def test_stop_pauses_and_persists_elapsed_seconds(
         "startedAt": "2026-10-14T01:00:00Z",
         "endedAt": "2026-10-14T02:02:03Z",
         "elapsedSeconds": 3723,
+        "linkedSessionId": None,
+        "sessionLinkStatus": "unlinked",
     }
     assert client.get("/api/stopwatch/active", headers=headers).json() == stopped.json()
 
 
-def test_start_resumes_paused_stopwatch_and_accumulates_elapsed_seconds(
+def test_start_resumes_paused_stopwatch_and_preserves_first_started_at(
     client_and_engine, monkeypatch
 ) -> None:
-    client, _ = client_and_engine
+    client, engine = client_and_engine
     headers = signup_and_headers(client, "user@example.com", "climber01")
     started_at = datetime(2026, 10, 14, 1, 0, 0)
     paused_at = started_at + timedelta(seconds=90)
@@ -105,15 +107,51 @@ def test_start_resumes_paused_stopwatch_and_accumulates_elapsed_seconds(
     assert resumed.json() == {
         "id": stopwatch_id,
         "status": "in_progress",
-        "startedAt": "2026-10-14T01:10:00Z",
+        "startedAt": "2026-10-14T01:00:00Z",
         "endedAt": None,
         "elapsedSeconds": 90,
+        "linkedSessionId": None,
+        "sessionLinkStatus": "unlinked",
     }
 
     monkeypatch.setattr("app.api.stopwatch.utc_now", lambda: checked_at)
     active = client.get("/api/stopwatch/active", headers=headers)
     assert active.status_code == 200
+    assert active.json()["startedAt"] == "2026-10-14T01:00:00Z"
     assert active.json()["elapsedSeconds"] == 135
+    with Session(engine) as db:
+        persisted = db.scalar(
+            select(StopwatchSession).where(StopwatchSession.id == stopwatch_id)
+        )
+        assert persisted is not None
+        assert persisted.createdAt == started_at
+        assert persisted.startedAt == resumed_at
+
+
+def test_finish_after_resume_returns_full_workout_timeline(
+    client_and_engine, monkeypatch
+) -> None:
+    client, _ = client_and_engine
+    headers = signup_and_headers(client, "user@example.com", "climber01")
+    first_started_at = datetime(2026, 11, 2, 11, 59, 0)
+    paused_at = first_started_at + timedelta(minutes=3)
+    resumed_at = first_started_at + timedelta(minutes=10)
+    finished_at = resumed_at + timedelta(seconds=42)
+
+    monkeypatch.setattr("app.api.stopwatch.utc_now", lambda: first_started_at)
+    stopwatch_id = start_stopwatch(client, headers).json()["id"]
+    monkeypatch.setattr("app.api.stopwatch.utc_now", lambda: paused_at)
+    client.patch(f"/api/stopwatch/{stopwatch_id}/stop", headers=headers)
+    monkeypatch.setattr("app.api.stopwatch.utc_now", lambda: resumed_at)
+    start_stopwatch(client, headers)
+    monkeypatch.setattr("app.api.stopwatch.utc_now", lambda: finished_at)
+
+    finished = client.patch(f"/api/stopwatch/{stopwatch_id}/finish", headers=headers)
+
+    assert finished.status_code == 200
+    assert finished.json()["startedAt"] == "2026-11-02T11:59:00Z"
+    assert finished.json()["endedAt"] == "2026-11-02T12:09:42Z"
+    assert finished.json()["elapsedSeconds"] == 222
 
 
 def test_reset_cancels_and_keeps_elapsed_seconds(

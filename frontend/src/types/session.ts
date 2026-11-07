@@ -9,6 +9,8 @@ export type Session = {
   total_attempts: number;
   total_sends: number;
   notes: string | null;
+  duration_source: 'manual' | 'stopwatch';
+  stopwatch_id: number | null;
 };
 
 export type SessionCreateResponse = Omit<Session, 'gym_name'>;
@@ -21,6 +23,7 @@ export type SessionCreateInput = {
   total_attempts: number;
   total_sends: number;
   notes?: string | null;
+  stopwatch_id?: number | null;
 };
 
-export type SessionUpdateInput = Partial<SessionCreateInput>;
+export type SessionUpdateInput = Partial<Omit<SessionCreateInput, 'stopwatch_id'>>;

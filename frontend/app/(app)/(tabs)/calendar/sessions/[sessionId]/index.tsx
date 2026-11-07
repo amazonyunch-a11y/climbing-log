@@ -39,6 +39,8 @@ export default function SessionDetailScreen() {
     { icon: 'clock-start', label: '시작 시간', value: formatKstDateTime(session.started_at) },
     { icon: 'clock-end', label: '종료 시간', value: formatKstDateTime(session.ended_at) },
     { icon: 'timer-sand', label: '운동 시간', value: `${session.duration_minutes ?? '-'}분` },
+    { icon: session.duration_source === 'stopwatch' ? 'timer-check-outline' : 'pencil-outline', label: '운동 시간 출처', value: session.duration_source === 'stopwatch' ? '스톱워치 기록' : '직접 입력' },
+    { icon: 'link-variant', label: '스톱워치 연결', value: session.stopwatch_id ? `연결됨 (#${session.stopwatch_id})` : '연결되지 않음' },
   ];
   return <Screen scroll>
     <PageHeader title="세션 상세" subtitle="운동 기록과 난이도, 영상을 확인하세요." onBack={goBack} action={<Button mode="text" icon="pencil-outline" onPress={() => router.push({ pathname: '/calendar/sessions/[sessionId]/edit', params: { sessionId: String(session.id) } })}>수정</Button>} />

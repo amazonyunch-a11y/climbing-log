@@ -1,4 +1,4 @@
-from datetime import date, datetime, timezone
+from datetime import date, datetime, time, timezone
 from zoneinfo import ZoneInfo
 
 
@@ -24,3 +24,12 @@ def utc_to_iso_z(value: datetime | None) -> str | None:
 
 def utc_to_kst_date(value: datetime) -> date:
     return value.replace(tzinfo=timezone.utc).astimezone(KST).date()
+
+
+def kst_date_to_utc_range(value: date) -> tuple[datetime, datetime]:
+    start = datetime.combine(value, time.min, tzinfo=KST)
+    end = datetime.combine(value.fromordinal(value.toordinal() + 1), time.min, tzinfo=KST)
+    return (
+        start.astimezone(timezone.utc).replace(tzinfo=None),
+        end.astimezone(timezone.utc).replace(tzinfo=None),
+    )

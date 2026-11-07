@@ -3,7 +3,7 @@
 클라이밍 운동 세션, 난이도 기록, 영상, 통계와 운동 스톱워치를 관리하는 모바일 MVP입니다.
 
 - Backend: FastAPI, SQLAlchemy, PostgreSQL, Alembic
-- Frontend: Expo SDK 57, React Native, Expo Router, React Native Paper
+- Frontend: Expo SDK 58, React Native, Expo Router, React Native Paper
 - Video storage: Supabase Storage
 - Authentication: FastAPI JWT
 
@@ -21,6 +21,7 @@ frontend/  Expo/React Native 모바일 앱
 - Node.js 22.13 이상 및 npm
 - Expo Go 또는 iOS/Android 개발 환경
 - 영상 기능을 사용할 경우 Supabase 프로젝트
+- 암장 장소 검색을 사용할 경우 Kakao Developers 앱과 JavaScript 키
 
 ## 1. Backend 실행
 
@@ -96,6 +97,7 @@ Frontend 공개 설정:
 | `EXPO_PUBLIC_SUPABASE_URL` | Supabase 프로젝트 URL |
 | `EXPO_PUBLIC_SUPABASE_ANON_KEY` | 모바일 직접 업로드용 공개 anon key |
 | `EXPO_PUBLIC_SUPABASE_STORAGE_BUCKET` | 영상 bucket 이름 |
+| `EXPO_PUBLIC_KAKAO_JAVASCRIPT_KEY` | WebView 장소 검색용 Kakao JavaScript 키 |
 
 ## 4. Supabase Storage 설정
 
@@ -107,6 +109,16 @@ Frontend 공개 설정:
 6. `SUPABASE_SERVICE_ROLE_KEY`는 오직 `backend/.env`에만 설정합니다. 백엔드는 사용자 소유권을 확인한 뒤 이 키로 Storage 파일을 삭제합니다.
 
 현재 MVP는 Supabase Auth를 사용하지 않습니다. 따라서 anon 업로드 정책은 테스트/MVP 용도로만 최소 범위로 제한하고, 운영 전에는 signed upload URL 또는 서버 중계 업로드 방식으로 강화하는 것을 권장합니다.
+
+## Kakao 지도 장소 검색 설정
+
+1. Kakao Developers에서 앱을 생성하고 **Kakao Map > 사용 설정**을 활성화합니다.
+2. **앱 > 플랫폼 키 > JavaScript 키**에서 사용할 키를 확인합니다. REST API 키나 Admin 키를 사용하지 않습니다.
+3. 같은 JavaScript 키의 **JavaScript SDK 도메인**에 `https://localhost`를 등록합니다. 앱의 인라인 WebView는 이 주소를 base URL로 사용합니다.
+4. `frontend/.env`의 `EXPO_PUBLIC_KAKAO_JAVASCRIPT_KEY`에 JavaScript 키를 설정합니다.
+5. 환경변수를 변경한 뒤 Expo 개발 서버를 `npx expo start --clear`로 다시 시작합니다.
+
+JavaScript 키는 앱 번들에 포함되는 공개 플랫폼 키이므로 실제 비밀키처럼 숨길 수 없습니다. Kakao Developers의 JavaScript SDK 도메인 제한을 반드시 적용하고, REST API 키와 Admin 키는 frontend 또는 WebView에 넣지 마세요.
 
 ## 5. 테스트
 
@@ -149,8 +161,8 @@ npm run typecheck
 ## 미구현 또는 향후 확장
 
 - 비밀번호 재설정, 이메일 인증, refresh token, 소셜 로그인
-- 프로필 정보 수정
-- stopwatch 완료 기록을 climbing session으로 전환하는 기능
+- 회원가입 중복 확인 및 비밀번호 확인 입력, Profile 비밀번호 변경과 신체 정보 입력 UX 고도화
+- Stopwatch 기록 이력 화면과 수동 연결 관리 고도화
 - 영상 지연 삭제, soft delete, 정리 scheduler
 - private bucket과 signed URL 기반 영상 접근
 - Supabase Auth 연동 또는 더 안전한 업로드 권한 모델
@@ -163,3 +175,9 @@ npm run typecheck
 - `backend/.env`와 `frontend/.env`는 커밋하지 않습니다.
 - service-role key, DB URL, JWT secret은 서버 환경에만 둡니다.
 - GitHub push 전 `git status`와 `git ls-files`로 `.env` 포함 여부를 다시 확인합니다.
+
+## Release History
+
+- **v0.1.0 (2026-10-16):** 초기 MVP. 기준 커밋 `ba3f1f4efd9c34604fbc502b45359caf3c3dba77`.
+- **v0.2.0 (2026-11-07):** 카카오 지도 암장 검색과 Stopwatch–Session 연동. 자세한 내용은 [CHANGELOG.md](CHANGELOG.md)를 참고하세요.
+- **Next:** Auth/Profile 입력과 계정 관리 고도화.

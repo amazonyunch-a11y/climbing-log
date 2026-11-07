@@ -1,7 +1,10 @@
 import { calendarApi } from '@/src/api/calendar';
+import { stopwatchApi } from '@/src/api/stopwatch';
 import { ApiError } from '@/src/api/client';
 import { EmptyState, LoadingState, PageHeader, Screen, SectionHeader, uiStyles } from '@/src/components/ui';
+import { StopwatchPendingNotice } from '@/src/components/StopwatchPendingNotice';
 import { colors, radius, spacing } from '@/src/constants/theme';
+import type { Stopwatch } from '@/src/types/stopwatch';
 import { createMonthGrid, formatKoreanDate, formatKstDate, formatLocalDate, parseLocalDate } from '@/src/utils/date';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -16,10 +19,14 @@ export default function CalendarScreen() {
   const [selectedDate, setSelectedDate] = useState(formatLocalDate(today));
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [sessions, setSessions] = useState<Awaited<ReturnType<typeof calendarApi.date>>['sessions']>([]);
+  const [pendingStopwatches, setPendingStopwatches] = useState<Stopwatch[]>([]);
   const [isDailyLoading, setIsDailyLoading] = useState(true);
+  const [pendingError, setPendingError] = useState<string>();
   const [error, setError] = useState<string>();
   const dailyRequestId = useRef(0);
   const monthRequestId = useRef(0);
+  const pendingRequestId = useRef(0);
+  const todayString = formatLocalDate(today);
 
   useEffect(() => {
     if (!params.date) return;
@@ -47,17 +54,38 @@ export default function CalendarScreen() {
     finally { if (requestId === dailyRequestId.current) setIsDailyLoading(false); }
   }, []);
 
+  const refetchPendingStopwatches = useCallback(async (date: string) => {
+    const requestId = ++pendingRequestId.current;
+    if (date !== todayString) {
+      setPendingStopwatches([]);
+      setPendingError(undefined);
+      return;
+    }
+    try {
+      const pending = await stopwatchApi.getPending(date);
+      if (requestId === pendingRequestId.current) {
+        setPendingStopwatches(pending);
+        setPendingError(undefined);
+      }
+    } catch (cause) {
+      if (requestId === pendingRequestId.current) setPendingError(cause instanceof ApiError ? cause.message : '저장된 운동 시간을 확인하지 못했습니다.');
+    }
+  }, [todayString]);
+
   useFocusEffect(useCallback(() => {
     void refetchMonth(visibleMonth);
     void refetchDailySessions(selectedDate);
-  }, [refetchDailySessions, refetchMonth, selectedDate, visibleMonth]));
+    void refetchPendingStopwatches(selectedDate);
+  }, [refetchDailySessions, refetchMonth, refetchPendingStopwatches, selectedDate, visibleMonth]));
 
   const selectDate = (date: string) => {
     if (date === selectedDate) {
       void refetchDailySessions(date);
+      void refetchPendingStopwatches(date);
       return;
     }
     dailyRequestId.current += 1;
+    pendingRequestId.current += 1;
     setSessions([]);
     setIsDailyLoading(true);
     setSelectedDate(date);
@@ -67,6 +95,7 @@ export default function CalendarScreen() {
   const changeMonth = (delta: number) => {
     const nextMonth = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth() + delta, 1);
     dailyRequestId.current += 1;
+    pendingRequestId.current += 1;
     monthRequestId.current += 1;
     setSessions([]); setCounts({}); setIsDailyLoading(true);
     setVisibleMonth(nextMonth);
@@ -86,6 +115,8 @@ export default function CalendarScreen() {
       })}</View>
     </Card.Content></Card>
     <SectionHeader title={formatKoreanDate(selectedDate)} description="선택한 날짜의 운동 기록" action={<Button mode="contained" icon="plus" compact onPress={() => router.push({ pathname: '/calendar/sessions/new', params: { date: selectedDate } })}>세션 추가</Button>} />
+    {pendingStopwatches.length > 0 && <StopwatchPendingNotice stopwatches={pendingStopwatches} action={sessions.length === 0 ? <Button mode="contained" icon="timer-plus-outline" onPress={() => router.push({ pathname: '/calendar/sessions/new', params: { date: selectedDate } })}>저장된 운동 시간으로 세션 추가</Button> : undefined} />}
+    {pendingError && <Card mode="outlined" style={styles.pendingError}><Card.Content style={styles.pendingErrorContent}><Text variant="bodySmall" style={uiStyles.muted}>저장된 운동 시간을 확인하지 못했습니다.</Text><Button compact onPress={() => void refetchPendingStopwatches(selectedDate)}>다시 시도</Button></Card.Content></Card>}
     {isDailyLoading ? <LoadingState label="세션을 불러오는 중입니다." /> : sessions.length === 0 ? <EmptyState title="이 날짜의 운동 기록이 없어요" description="첫 세션을 추가해 운동을 기록해 보세요." icon="calendar-blank-outline" action={<Button mode="contained-tonal" onPress={() => router.push({ pathname: '/calendar/sessions/new', params: { date: selectedDate } })}>세션 추가</Button>} /> : sessions.map((session) => <Card key={session.id} mode="outlined" style={uiStyles.card} onPress={() => router.push({ pathname: '/calendar/sessions/[sessionId]', params: { sessionId: String(session.id) } })}><Card.Content style={styles.sessionCard}><View style={styles.sessionTitle}><View style={styles.sessionIcon}><Icon source="map-marker-outline" size={22} color={colors.blue600} /></View><Text variant="titleMedium" style={styles.sessionName} numberOfLines={2}>{session.gym_name ?? '암장 정보 없음'}</Text><Icon source="chevron-right" size={22} color={colors.textMuted} /></View><View style={styles.metrics}><Text variant="bodyMedium">{session.duration_minutes ?? '-'}분</Text><Text variant="bodyMedium">시도 {session.total_attempts}</Text><Text variant="bodyMedium">완등 {session.total_sends}</Text></View></Card.Content></Card>)}
     <Snackbar visible={Boolean(error)} onDismiss={() => setError(undefined)} action={{ label: '다시 시도', onPress: () => { void refetchMonth(visibleMonth); void refetchDailySessions(selectedDate); } }}>{error}</Snackbar>
   </Screen>;
@@ -104,4 +135,5 @@ const styles = StyleSheet.create({
   sessionCard: { gap: spacing.md }, sessionTitle: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm }, sessionName: { flex: 1, color: colors.navy900, fontWeight: '700' },
   sessionIcon: { width: 38, height: 38, borderRadius: radius.md, backgroundColor: colors.sky100, alignItems: 'center', justifyContent: 'center' },
   metrics: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.lg, paddingLeft: 46 },
+  pendingError: { borderColor: colors.border }, pendingErrorContent: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm },
 });

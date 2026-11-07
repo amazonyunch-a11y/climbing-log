@@ -104,6 +104,8 @@ def test_create_list_and_get_session(client_and_engine) -> None:
         "total_attempts": 0,
         "total_sends": 0,
         "notes": "오버행 위주",
+        "duration_source": "manual",
+        "stopwatch_id": None,
     }
 
     listed = client.get("/api/sessions", headers=headers)

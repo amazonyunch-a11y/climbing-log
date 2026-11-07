@@ -13,6 +13,7 @@ function getKstParts(value: Date | string): Record<string, string> {
       day: '2-digit',
       hour: '2-digit',
       minute: '2-digit',
+      second: '2-digit',
       hourCycle: 'h23',
     }).formatToParts(date).filter((part) => part.type !== 'literal').map((part) => [part.type, part.value]),
   );
@@ -29,6 +30,12 @@ export function formatKstDateTime(value: string | null): string {
   return `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute}`;
 }
 
+export function formatKstDateTimeSeconds(value: string | null): string {
+  if (!value) return '-';
+  const parts = getKstParts(value);
+  return `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute}:${parts.second}`;
+}
+
 export function formatKstDateTimeInput(value: string | null): string {
   if (!value) return '';
   const parts = getKstParts(value);
@@ -38,6 +45,11 @@ export function formatKstDateTimeInput(value: string | null): string {
 export function formatKstTime(value: Date | string): string {
   const parts = getKstParts(value);
   return `${parts.hour}:${parts.minute}`;
+}
+
+export function formatKstTimeSeconds(value: Date | string): string {
+  const parts = getKstParts(value);
+  return `${parts.hour}:${parts.minute}:${parts.second}`;
 }
 
 /** Creates a Date representing a KST wall-clock time for the native time picker. */

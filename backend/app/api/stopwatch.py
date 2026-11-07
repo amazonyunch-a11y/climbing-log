@@ -1,7 +1,7 @@
-from datetime import datetime
+from datetime import date, datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import desc, select
 from sqlalchemy.orm import Session
 
@@ -11,12 +11,17 @@ from app.db.session import get_db
 from app.models.stopwatch_session import StopwatchSession
 from app.models.user import User
 from app.schemas.stopwatch import StopwatchResponse
+from app.services.stopwatch_linking import (
+    auto_link_stopwatch_to_session,
+    pending_stopwatches_for_date,
+)
 
 
 router = APIRouter(prefix="/api/stopwatch", tags=["stopwatch"])
 IN_PROGRESS = "in_progress"
 PAUSED = "paused"
 CANCELED = "canceled"
+COMPLETED = "completed"
 
 
 def _get_owned_stopwatch(
@@ -54,14 +59,26 @@ def _response_elapsed_seconds(stopwatch: StopwatchSession, now: datetime) -> int
     return stopwatch.elapsedSeconds + _elapsed_seconds(stopwatch.startedAt, now)
 
 
-def _to_response(stopwatch: StopwatchSession) -> StopwatchResponse:
+def _to_response(
+    stopwatch: StopwatchSession, session_link_status: str | None = None
+) -> StopwatchResponse:
     now = utc_now()
     return StopwatchResponse(
         id=stopwatch.id,
         status=stopwatch.status,
-        startedAt=utc_to_iso_z(stopwatch.startedAt),
+        # startedAt in the API is the whole workout's first start. The model's
+        # startedAt is intentionally reused as the current segment start on resume.
+        startedAt=utc_to_iso_z(stopwatch.createdAt),
         endedAt=utc_to_iso_z(stopwatch.endedAt),
         elapsedSeconds=_response_elapsed_seconds(stopwatch, now),
+        linkedSessionId=stopwatch.climbingSessionId,
+        sessionLinkStatus=session_link_status or (
+            "linked"
+            if stopwatch.climbingSessionId is not None
+            else "pending"
+            if stopwatch.status == COMPLETED
+            else "unlinked"
+        ),
     )
 
 
@@ -143,6 +160,32 @@ def stop_stopwatch(
     return _pause_stopwatch(stopwatchId, current_user, db)
 
 
+@router.patch("/{stopwatchId}/finish", response_model=StopwatchResponse)
+def finish_stopwatch(
+    stopwatchId: int,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+) -> StopwatchResponse:
+    stopwatch = _get_owned_stopwatch(db, stopwatchId, current_user)
+    if stopwatch.status not in (IN_PROGRESS, PAUSED):
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Stopwatch is not active")
+
+    now = utc_now()
+    if stopwatch.status == IN_PROGRESS:
+        stopwatch.elapsedSeconds = _response_elapsed_seconds(stopwatch, now)
+    stopwatch.endedAt = now
+    stopwatch.status = COMPLETED
+    stopwatch.updatedAt = now
+    try:
+        session_link_status = auto_link_stopwatch_to_session(db, stopwatch)
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+    db.refresh(stopwatch)
+    return _to_response(stopwatch, session_link_status)
+
+
 @router.patch("/{stopwatchId}/reset", response_model=StopwatchResponse)
 def reset_stopwatch(
     stopwatchId: int,
@@ -155,6 +198,8 @@ def reset_stopwatch(
             status_code=status.HTTP_409_CONFLICT,
             detail="Stopwatch is no longer active",
         )
+    if stopwatch.climbingSessionId is not None:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Stopwatch is linked")
 
     now = utc_now()
     stopwatch.elapsedSeconds = _response_elapsed_seconds(stopwatch, now)
@@ -164,3 +209,15 @@ def reset_stopwatch(
     db.commit()
     db.refresh(stopwatch)
     return _to_response(stopwatch)
+
+
+@router.get("/pending", response_model=list[StopwatchResponse])
+def get_pending_stopwatches(
+    session_date: Annotated[date, Query()],
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+) -> list[StopwatchResponse]:
+    return [
+        _to_response(stopwatch)
+        for stopwatch in pending_stopwatches_for_date(db, current_user.id, session_date)
+    ]

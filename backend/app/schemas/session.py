@@ -1,4 +1,5 @@
 from datetime import date, datetime
+from typing import Literal
 
 from pydantic import BaseModel
 
@@ -11,6 +12,7 @@ class SessionCreateRequest(BaseModel):
     total_attempts: int = 0
     total_sends: int = 0
     notes: str | None = None
+    stopwatch_id: int | None = None
 
 
 class SessionUpdateRequest(BaseModel):
@@ -33,6 +35,8 @@ class SessionCreateResponse(BaseModel):
     total_attempts: int
     total_sends: int
     notes: str | None
+    duration_source: Literal["manual", "stopwatch"]
+    stopwatch_id: int | None
 
 
 class SessionDetailResponse(SessionCreateResponse):

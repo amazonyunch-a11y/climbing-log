@@ -16,12 +16,17 @@ from app.db.session import get_db
 from app.models.climbing_session import ClimbingSession
 from app.models.grade_logs import GradeLogs
 from app.models.gyms import Gyms
+from app.models.stopwatch_session import StopwatchSession
 from app.models.user import User
 from app.schemas.session import (
     SessionCreateRequest,
     SessionCreateResponse,
     SessionDetailResponse,
     SessionUpdateRequest,
+)
+from app.services.stopwatch_linking import (
+    link_stopwatch_to_session,
+    pending_stopwatches_for_date,
 )
 
 
@@ -86,6 +91,43 @@ def _get_owned_session(
     return climbing_session
 
 
+def _get_linkable_stopwatch(
+    db: Session,
+    stopwatch_id: int,
+    session_date: date,
+    current_user: User,
+) -> StopwatchSession:
+    stopwatch = db.scalar(
+        select(StopwatchSession)
+        .where(
+            StopwatchSession.id == stopwatch_id,
+            StopwatchSession.userId == current_user.id,
+        )
+        .with_for_update()
+    )
+    if stopwatch is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Stopwatch not found",
+        )
+    if stopwatch.status != "completed":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Stopwatch is not completed",
+        )
+    if stopwatch.climbingSessionId is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Stopwatch is already linked",
+        )
+    if utc_to_kst_date(stopwatch.createdAt) != session_date:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Stopwatch must be on session_date in Asia/Seoul",
+        )
+    return stopwatch
+
+
 def _grade_totals_by_session_id(
     db: Session, session_ids: list[int]
 ) -> dict[int, tuple[int, int]]:
@@ -122,6 +164,12 @@ def _to_create_response(
         total_attempts=total_attempts,
         total_sends=total_sends,
         notes=climbing_session.notes,
+        duration_source=climbing_session.durationSource,
+        stopwatch_id=(
+            climbing_session.stopwatch_session.id
+            if climbing_session.stopwatch_session is not None
+            else None
+        ),
     )
 
 
@@ -175,6 +223,30 @@ def create_session(
         kst_input_to_utc(payload.ended_at) if payload.ended_at is not None else None
     )
     _validate_kst_session_dates(payload.session_date, started_at, ended_at)
+
+    selected_stopwatch: StopwatchSession | None = None
+    selected_automatically = False
+    if "stopwatch_id" in payload.model_fields_set:
+        if payload.stopwatch_id is not None:
+            selected_stopwatch = _get_linkable_stopwatch(
+                db,
+                payload.stopwatch_id,
+                payload.session_date,
+                current_user,
+            )
+    else:
+        pending_stopwatches = pending_stopwatches_for_date(
+            db, current_user.id, payload.session_date
+        )
+        if len(pending_stopwatches) == 1:
+            selected_stopwatch = _get_linkable_stopwatch(
+                db,
+                pending_stopwatches[0].id,
+                payload.session_date,
+                current_user,
+            )
+            selected_automatically = True
+
     climbing_session = ClimbingSession(
         userId=current_user.id,
         gymId=payload.gym_id,
@@ -182,11 +254,36 @@ def create_session(
         startedAt=started_at,
         endedAt=ended_at,
         durationMintes=_duration_minutes(started_at, ended_at),
+        durationSource="manual",
         notes=payload.notes,
         createdAt=utc_now(),
     )
     db.add(climbing_session)
-    db.commit()
+    try:
+        db.flush()
+        if selected_stopwatch is not None:
+            uses_stopwatch_times = (
+                selected_automatically
+                or (
+                    started_at == selected_stopwatch.createdAt
+                    and ended_at == selected_stopwatch.endedAt
+                )
+            )
+            if uses_stopwatch_times:
+                _validate_kst_session_dates(
+                    payload.session_date,
+                    selected_stopwatch.createdAt,
+                    selected_stopwatch.endedAt,
+                )
+            link_stopwatch_to_session(
+                selected_stopwatch,
+                climbing_session,
+                use_stopwatch_times=uses_stopwatch_times,
+            )
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
     db.refresh(climbing_session)
     totals = _grade_totals_by_session_id(db, [climbing_session.id]).get(
         climbing_session.id, (0, 0)
@@ -253,6 +350,8 @@ def update_session(
         climbing_session.durationMintes = _duration_minutes(
             climbing_session.startedAt, climbing_session.endedAt
         )
+        if {"session_date", "started_at", "ended_at"}.intersection(changes):
+            climbing_session.durationSource = "manual"
         db.commit()
         db.refresh(climbing_session)
 
@@ -269,6 +368,8 @@ def delete_session(
     db: Annotated[Session, Depends(get_db)],
 ) -> Response:
     climbing_session = _get_owned_session(db, sessionId, current_user)
+    if climbing_session.stopwatch_session is not None:
+        climbing_session.stopwatch_session.climbingSessionId = None
     db.delete(climbing_session)
     db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)

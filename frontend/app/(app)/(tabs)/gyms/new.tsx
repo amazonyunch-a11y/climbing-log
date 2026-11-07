@@ -26,7 +26,7 @@ export default function NewGymScreen() {
     }
   };
 
-  return <KeyboardAvoidingView style={styles.root} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}><Screen scroll><PageHeader title="암장 등록" subtitle="세션 기록에 사용할 암장 정보를 입력하세요." onBack={() => router.back()} /><Card mode="outlined" style={uiStyles.card}><Card.Content style={styles.form}><GymForm submitLabel="등록하기" isSubmitting={isSubmitting} error={error} onSubmit={createGym} /></Card.Content></Card></Screen></KeyboardAvoidingView>;
+  return <KeyboardAvoidingView style={styles.root} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}><Screen scroll><PageHeader title="암장 등록" subtitle="세션 기록에 사용할 암장 정보를 입력하세요." onBack={() => router.back()} /><Card mode="outlined" style={uiStyles.card}><Card.Content style={styles.form}><GymForm submitLabel="등록하기" isSubmitting={isSubmitting} error={error} enablePlacePicker onSubmit={createGym} /></Card.Content></Card></Screen></KeyboardAvoidingView>;
 }
 
 const styles = StyleSheet.create({ root: { flex: 1 }, form: { gap: spacing.md } });

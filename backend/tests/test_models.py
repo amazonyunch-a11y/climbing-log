@@ -47,6 +47,7 @@ def test_metadata_matches_erd_tables_and_columns() -> None:
             "startedAt": DateTime,
             "endedAt": DateTime,
             "durationMintes": Integer,
+            "durationSource": String,
             "totalAteempts": Integer,
             "totalSends": Integer,
             "notes": String,
@@ -81,6 +82,7 @@ def test_metadata_matches_erd_tables_and_columns() -> None:
         "stopwatchSessions": {
             "id": Integer,
             "userId": Integer,
+            "climbingSessionId": Integer,
             "startedAt": DateTime,
             "endedAt": DateTime,
             "elapsedSeconds": Integer,
@@ -109,7 +111,10 @@ def test_foreign_keys_match_erd() -> None:
         "climbingSession": {"userId": "user.id", "gymId": "gyms.id"},
         "gradeLogs": {"sessionId": "climbingSession.id"},
         "videos": {"userId": "user.id", "sessionId": "climbingSession.id"},
-        "stopwatchSessions": {"userId": "user.id"},
+        "stopwatchSessions": {
+            "userId": "user.id",
+            "climbingSessionId": "climbingSession.id",
+        },
     }
 
     for table_name, expected in expected_foreign_keys.items():
@@ -136,7 +141,30 @@ def test_relationships_match_erd() -> None:
     assert ClimbingSession.gym.property.mapper.class_ is Gyms
     assert ClimbingSession.grade_logs.property.mapper.class_ is GradeLogs
     assert ClimbingSession.videos.property.mapper.class_ is Videos
+    assert ClimbingSession.stopwatch_session.property.mapper.class_ is StopwatchSession
+    assert ClimbingSession.stopwatch_session.property.uselist is False
     assert GradeLogs.session.property.mapper.class_ is ClimbingSession
     assert Videos.user.property.mapper.class_ is User
     assert Videos.session.property.mapper.class_ is ClimbingSession
     assert StopwatchSession.user.property.mapper.class_ is User
+    assert StopwatchSession.climbing_session.property.mapper.class_ is ClimbingSession
+
+
+def test_stopwatch_session_link_constraints() -> None:
+    stopwatch_table = Base.metadata.tables["stopwatchSessions"]
+    climbing_table = Base.metadata.tables["climbingSession"]
+
+    climbing_session_fk = next(
+        foreign_key
+        for foreign_key in stopwatch_table.foreign_keys
+        if foreign_key.parent.name == "climbingSessionId"
+    )
+    assert climbing_session_fk.target_fullname == "climbingSession.id"
+    assert climbing_session_fk.ondelete == "SET NULL"
+    assert any(
+        constraint.name == "uq_stopwatchSessions_climbingSessionId"
+        for constraint in stopwatch_table.constraints
+    )
+    assert any(index.name == "ix_stopwatchSessions_userId" for index in stopwatch_table.indexes)
+    assert climbing_table.c.durationSource.default.arg == "manual"
+    assert climbing_table.c.durationSource.server_default.arg == "manual"
