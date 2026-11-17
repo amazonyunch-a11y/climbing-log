@@ -10,6 +10,7 @@ from app.db.base import Base
 from app.db.session import get_db
 from app.main import app
 from app.models.climbing_session import ClimbingSession
+from tests.auth_helpers import mark_email_verified
 
 
 @pytest.fixture
@@ -44,6 +45,7 @@ def signup_and_headers(client: TestClient, email: str, nickname: str) -> dict[st
         json={"email": email, "password": "correct-password", "nickname": nickname},
     )
     assert signup.status_code == 201
+    mark_email_verified(email)
     login = client.post(
         "/api/auth/login",
         json={"email": email, "password": "correct-password"},
@@ -88,7 +90,7 @@ def test_sessions_reject_missing_bearer_token(client_and_engine) -> None:
 
 def test_create_list_and_get_session(client_and_engine) -> None:
     client, _ = client_and_engine
-    headers = signup_and_headers(client, "user@example.com", "climber01")
+    headers = signup_and_headers(client, "user@example.com", "Climber01")
     gym_id = create_gym(client, headers)
 
     created = create_session(client, headers, gym_id)
@@ -124,7 +126,7 @@ def test_create_list_and_get_session(client_and_engine) -> None:
 
 def test_session_without_end_time_is_in_progress(client_and_engine) -> None:
     client, engine = client_and_engine
-    headers = signup_and_headers(client, "user@example.com", "climber01")
+    headers = signup_and_headers(client, "user@example.com", "Climber01")
     gym_id = create_gym(client, headers)
 
     response = create_session(client, headers, gym_id, ended_at=None)
@@ -140,7 +142,7 @@ def test_session_without_end_time_is_in_progress(client_and_engine) -> None:
 
 def test_patch_session_recalculates_duration_and_preserves_unset_fields(client_and_engine) -> None:
     client, engine = client_and_engine
-    headers = signup_and_headers(client, "user@example.com", "climber01")
+    headers = signup_and_headers(client, "user@example.com", "Climber01")
     gym_id = create_gym(client, headers)
     session_id = create_session(client, headers, gym_id).json()["id"]
 
@@ -166,7 +168,7 @@ def test_patch_session_recalculates_duration_and_preserves_unset_fields(client_a
 
 def test_delete_session_and_then_get_not_found(client_and_engine) -> None:
     client, _ = client_and_engine
-    headers = signup_and_headers(client, "user@example.com", "climber01")
+    headers = signup_and_headers(client, "user@example.com", "Climber01")
     gym_id = create_gym(client, headers)
     session_id = create_session(client, headers, gym_id).json()["id"]
 
@@ -180,8 +182,8 @@ def test_delete_session_and_then_get_not_found(client_and_engine) -> None:
 @pytest.mark.parametrize("method", ["get", "patch", "delete"])
 def test_other_users_session_is_not_exposed(client_and_engine, method: str) -> None:
     client, _ = client_and_engine
-    owner_headers = signup_and_headers(client, "owner@example.com", "owner")
-    other_headers = signup_and_headers(client, "other@example.com", "other")
+    owner_headers = signup_and_headers(client, "owner@example.com", "OwnerAa")
+    other_headers = signup_and_headers(client, "other@example.com", "OtherAa")
     gym_id = create_gym(client, owner_headers)
     session_id = create_session(client, owner_headers, gym_id).json()["id"]
 
@@ -202,8 +204,8 @@ def test_other_users_session_is_not_exposed(client_and_engine, method: str) -> N
 @pytest.mark.parametrize("gym_id_kind", ["missing", "other_user"])
 def test_create_session_requires_current_users_gym(client_and_engine, gym_id_kind: str) -> None:
     client, _ = client_and_engine
-    owner_headers = signup_and_headers(client, "owner@example.com", "owner")
-    other_headers = signup_and_headers(client, "other@example.com", "other")
+    owner_headers = signup_and_headers(client, "owner@example.com", "OwnerAa")
+    other_headers = signup_and_headers(client, "other@example.com", "OtherAa")
     owner_gym_id = create_gym(client, owner_headers)
     gym_id = 999 if gym_id_kind == "missing" else owner_gym_id
 
@@ -214,7 +216,7 @@ def test_create_session_requires_current_users_gym(client_and_engine, gym_id_kin
 
 def test_session_rejects_end_before_start(client_and_engine) -> None:
     client, _ = client_and_engine
-    headers = signup_and_headers(client, "user@example.com", "climber01")
+    headers = signup_and_headers(client, "user@example.com", "Climber01")
     gym_id = create_gym(client, headers)
 
     response = create_session(
@@ -230,7 +232,7 @@ def test_session_rejects_end_before_start(client_and_engine) -> None:
 
 def test_session_converts_kst_input_to_utc_and_keeps_kst_session_date(client_and_engine) -> None:
     client, engine = client_and_engine
-    headers = signup_and_headers(client, "user@example.com", "climber01")
+    headers = signup_and_headers(client, "user@example.com", "Climber01")
     gym_id = create_gym(client, headers)
 
     response = create_session(
@@ -263,7 +265,7 @@ def test_session_converts_kst_input_to_utc_and_keeps_kst_session_date(client_and
 )
 def test_session_rejects_kst_time_outside_session_date(client_and_engine, field: str, value: str) -> None:
     client, _ = client_and_engine
-    headers = signup_and_headers(client, "user@example.com", "climber01")
+    headers = signup_and_headers(client, "user@example.com", "Climber01")
     gym_id = create_gym(client, headers)
     payload = {
         "gym_id": gym_id,
@@ -282,7 +284,7 @@ def test_session_update_rejects_kst_time_outside_session_date_and_allows_null_en
     client_and_engine,
 ) -> None:
     client, _ = client_and_engine
-    headers = signup_and_headers(client, "user@example.com", "climber01")
+    headers = signup_and_headers(client, "user@example.com", "Climber01")
     gym_id = create_gym(client, headers)
     session_id = create_session(client, headers, gym_id).json()["id"]
 
@@ -305,7 +307,7 @@ def test_session_update_rejects_kst_time_outside_session_date_and_allows_null_en
 
 def test_session_totals_are_derived_from_grade_logs(client_and_engine) -> None:
     client, engine = client_and_engine
-    headers = signup_and_headers(client, "user@example.com", "climber01")
+    headers = signup_and_headers(client, "user@example.com", "Climber01")
     gym_id = create_gym(client, headers)
     session_id = create_session(client, headers, gym_id).json()["id"]
 

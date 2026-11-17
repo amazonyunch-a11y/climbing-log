@@ -21,3 +21,32 @@ export type TokenResponse = {
 export type SignupResponse = CurrentUser & {
   created_at: string;
 };
+
+export type PasswordResetRequest = {
+  email: string;
+};
+
+export type PasswordResetConfirmRequest = {
+  email: string;
+  code: string;
+  new_password: string;
+  new_password_confirm: string;
+};
+
+export type AuthMessageResponse = {
+  message: string;
+};
+
+export type EmailVerificationRequest = {
+  email: string;
+};
+
+export type EmailVerificationConfirmRequest = {
+  email: string;
+  code: string;
+};
+
+export type EmailVerificationConfirmResponse = {
+  message: string;
+  verified: boolean;
+};

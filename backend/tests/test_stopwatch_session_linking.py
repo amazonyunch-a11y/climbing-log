@@ -48,7 +48,7 @@ def start_and_finish(client, headers, monkeypatch, start: datetime, end: datetim
 
 def test_pending_stopwatches_returns_empty_list(client_and_engine) -> None:
     client, _ = client_and_engine
-    headers = signup_and_headers(client, "user@example.com", "climber")
+    headers = signup_and_headers(client, "user@example.com", "ClimberAa")
 
     response = client.get(
         "/api/stopwatch/pending",
@@ -62,7 +62,7 @@ def test_pending_stopwatches_returns_empty_list(client_and_engine) -> None:
 
 def test_finish_links_exactly_one_same_kst_date_session(client_and_engine, monkeypatch) -> None:
     client, _ = client_and_engine
-    headers = signup_and_headers(client, "user@example.com", "climber")
+    headers = signup_and_headers(client, "user@example.com", "ClimberAa")
     session = create_session(client, headers, create_gym(client, headers), "2026-10-23")
     start = datetime(2026, 10, 22, 15, 30)  # 2026-10-23 00:30 KST
     finished = start_and_finish(client, headers, monkeypatch, start, start + timedelta(seconds=3661))
@@ -87,7 +87,7 @@ def test_finish_links_exactly_one_same_kst_date_session(client_and_engine, monke
 
 def test_finish_without_session_is_pending_then_session_creation_links(client_and_engine, monkeypatch) -> None:
     client, _ = client_and_engine
-    headers = signup_and_headers(client, "user@example.com", "climber")
+    headers = signup_and_headers(client, "user@example.com", "ClimberAa")
     start = datetime(2026, 10, 22, 15, 0)
     finished = start_and_finish(client, headers, monkeypatch, start, start + timedelta(minutes=30))
 
@@ -105,7 +105,7 @@ def test_session_creation_does_not_choose_between_two_pending_stopwatches(
     client_and_engine, monkeypatch
 ) -> None:
     client, _ = client_and_engine
-    headers = signup_and_headers(client, "user@example.com", "climber")
+    headers = signup_and_headers(client, "user@example.com", "ClimberAa")
     first = start_and_finish(
         client,
         headers,
@@ -142,7 +142,7 @@ def test_session_creation_links_selected_stopwatch_among_multiple_pending(
     client_and_engine, monkeypatch
 ) -> None:
     client, _ = client_and_engine
-    headers = signup_and_headers(client, "user@example.com", "climber")
+    headers = signup_and_headers(client, "user@example.com", "ClimberAa")
     first = start_and_finish(
         client,
         headers,
@@ -184,7 +184,7 @@ def test_explicit_null_stopwatch_id_keeps_single_pending_unlinked(
     client_and_engine, monkeypatch
 ) -> None:
     client, _ = client_and_engine
-    headers = signup_and_headers(client, "user@example.com", "climber")
+    headers = signup_and_headers(client, "user@example.com", "ClimberAa")
     finished = start_and_finish(
         client,
         headers,
@@ -215,7 +215,7 @@ def test_selected_stopwatch_keeps_link_but_uses_manually_edited_times(
     client_and_engine, monkeypatch
 ) -> None:
     client, _ = client_and_engine
-    headers = signup_and_headers(client, "user@example.com", "climber")
+    headers = signup_and_headers(client, "user@example.com", "ClimberAa")
     finished = start_and_finish(
         client,
         headers,
@@ -249,8 +249,8 @@ def test_session_creation_rejects_other_users_stopwatch(
     client_and_engine, monkeypatch
 ) -> None:
     client, _ = client_and_engine
-    owner_headers = signup_and_headers(client, "owner@example.com", "owner")
-    other_headers = signup_and_headers(client, "other@example.com", "other")
+    owner_headers = signup_and_headers(client, "owner@example.com", "OwnerAa")
+    other_headers = signup_and_headers(client, "other@example.com", "OtherAa")
     finished = start_and_finish(
         client,
         owner_headers,
@@ -279,7 +279,7 @@ def test_session_creation_rejects_in_progress_stopwatch(
     client_and_engine, monkeypatch
 ) -> None:
     client, _ = client_and_engine
-    headers = signup_and_headers(client, "user@example.com", "climber")
+    headers = signup_and_headers(client, "user@example.com", "ClimberAa")
     monkeypatch.setattr(
         "app.api.stopwatch.utc_now", lambda: datetime(2026, 10, 22, 15)
     )
@@ -305,7 +305,7 @@ def test_session_creation_rejects_already_linked_stopwatch(
     client_and_engine, monkeypatch
 ) -> None:
     client, _ = client_and_engine
-    headers = signup_and_headers(client, "user@example.com", "climber")
+    headers = signup_and_headers(client, "user@example.com", "ClimberAa")
     gym_id = create_gym(client, headers)
     finished = start_and_finish(
         client,
@@ -344,7 +344,7 @@ def test_session_creation_rejects_stopwatch_from_different_kst_date(
     client_and_engine, monkeypatch
 ) -> None:
     client, _ = client_and_engine
-    headers = signup_and_headers(client, "user@example.com", "climber")
+    headers = signup_and_headers(client, "user@example.com", "ClimberAa")
     finished = start_and_finish(
         client,
         headers,
@@ -373,7 +373,7 @@ def test_session_creation_rejects_stopwatch_from_different_kst_date(
 
 def test_ambiguous_sessions_do_not_auto_link(client_and_engine, monkeypatch) -> None:
     client, _ = client_and_engine
-    headers = signup_and_headers(client, "user@example.com", "climber")
+    headers = signup_and_headers(client, "user@example.com", "ClimberAa")
     gym_id = create_gym(client, headers)
     create_session(client, headers, gym_id, "2026-10-23")
     create_session(client, headers, gym_id, "2026-10-23")
@@ -387,7 +387,7 @@ def test_ambiguous_sessions_do_not_auto_link(client_and_engine, monkeypatch) -> 
 
 def test_manual_session_edit_preserves_link_and_prevents_overwrite(client_and_engine, monkeypatch) -> None:
     client, _ = client_and_engine
-    headers = signup_and_headers(client, "user@example.com", "climber")
+    headers = signup_and_headers(client, "user@example.com", "ClimberAa")
     session = create_session(client, headers, create_gym(client, headers), "2026-10-23")
     finished = start_and_finish(
         client, headers, monkeypatch, datetime(2026, 10, 22, 15), datetime(2026, 10, 22, 16)
@@ -403,7 +403,7 @@ def test_manual_session_edit_preserves_link_and_prevents_overwrite(client_and_en
 
 def test_session_delete_preserves_stopwatch_metadata(client_and_engine, monkeypatch) -> None:
     client, engine = client_and_engine
-    headers = signup_and_headers(client, "user@example.com", "climber")
+    headers = signup_and_headers(client, "user@example.com", "ClimberAa")
     session = create_session(client, headers, create_gym(client, headers), "2026-10-23")
     finished = start_and_finish(
         client, headers, monkeypatch, datetime(2026, 10, 22, 15), datetime(2026, 10, 22, 16)

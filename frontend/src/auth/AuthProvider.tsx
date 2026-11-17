@@ -1,15 +1,17 @@
 import { authApi } from '@/src/api/auth';
 import { setUnauthorizedHandler } from '@/src/api/client';
 import { tokenStorage } from '@/src/auth/tokenStorage';
-import type { CurrentUser, LoginRequest, SignupRequest } from '@/src/types/auth';
+import type { CurrentUser, LoginRequest, SignupRequest, SignupResponse } from '@/src/types/auth';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
 type AuthContextValue = {
   user: CurrentUser | null;
   isLoading: boolean;
   login: (payload: LoginRequest) => Promise<void>;
-  signup: (payload: SignupRequest) => Promise<void>;
+  signup: (payload: SignupRequest) => Promise<SignupResponse>;
+  refreshUser: () => Promise<void>;
   logout: () => Promise<void>;
+  resetSession: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -59,8 +61,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [clearSession]);
 
-  const signup = useCallback(async (payload: SignupRequest) => {
-    await authApi.signup(payload);
+  const signup = useCallback((payload: SignupRequest) => authApi.signup(payload), []);
+
+  const refreshUser = useCallback(async () => {
+    setUser(await authApi.me());
   }, []);
 
   const logout = useCallback(async () => {
@@ -71,7 +75,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [clearSession]);
 
-  const value = useMemo(() => ({ user, isLoading, login, signup, logout }), [user, isLoading, login, signup, logout]);
+  const value = useMemo(
+    () => ({ user, isLoading, login, signup, refreshUser, logout, resetSession: clearSession }),
+    [user, isLoading, login, signup, refreshUser, logout, clearSession],
+  );
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 

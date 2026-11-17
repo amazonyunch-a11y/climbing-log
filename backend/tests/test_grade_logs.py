@@ -7,6 +7,7 @@ from starlette.testclient import TestClient
 from app.db.base import Base
 from app.db.session import get_db
 from app.main import app
+from tests.auth_helpers import mark_email_verified
 
 
 @pytest.fixture
@@ -41,6 +42,7 @@ def signup_and_headers(client: TestClient, email: str, nickname: str) -> dict[st
         json={"email": email, "password": "correct-password", "nickname": nickname},
     )
     assert signup.status_code == 201
+    mark_email_verified(email)
     login = client.post(
         "/api/auth/login",
         json={"email": email, "password": "correct-password"},
@@ -95,7 +97,7 @@ def test_grade_logs_reject_missing_bearer_token(client_and_engine) -> None:
 
 def test_create_list_and_update_grade_log(client_and_engine) -> None:
     client, _ = client_and_engine
-    headers = signup_and_headers(client, "user@example.com", "climber01")
+    headers = signup_and_headers(client, "user@example.com", "Climber01")
     session_id = create_session(client, headers)
 
     created = create_grade_log(client, headers, session_id)
@@ -132,7 +134,7 @@ def test_create_list_and_update_grade_log(client_and_engine) -> None:
 
 def test_delete_grade_log_removes_it_from_session_list(client_and_engine) -> None:
     client, _ = client_and_engine
-    headers = signup_and_headers(client, "user@example.com", "climber01")
+    headers = signup_and_headers(client, "user@example.com", "Climber01")
     session_id = create_session(client, headers)
     grade_id = create_grade_log(client, headers, session_id).json()["id"]
 
@@ -147,8 +149,8 @@ def test_delete_grade_log_removes_it_from_session_list(client_and_engine) -> Non
 
 def test_other_users_session_grade_logs_are_not_exposed_or_created(client_and_engine) -> None:
     client, _ = client_and_engine
-    owner_headers = signup_and_headers(client, "owner@example.com", "owner")
-    other_headers = signup_and_headers(client, "other@example.com", "other")
+    owner_headers = signup_and_headers(client, "owner@example.com", "OwnerAa")
+    other_headers = signup_and_headers(client, "other@example.com", "OtherAa")
     owner_session_id = create_session(client, owner_headers)
 
     assert client.get(
@@ -160,8 +162,8 @@ def test_other_users_session_grade_logs_are_not_exposed_or_created(client_and_en
 @pytest.mark.parametrize("method", ["patch", "delete"])
 def test_other_users_grade_log_cannot_be_changed(client_and_engine, method: str) -> None:
     client, _ = client_and_engine
-    owner_headers = signup_and_headers(client, "owner@example.com", "owner")
-    other_headers = signup_and_headers(client, "other@example.com", "other")
+    owner_headers = signup_and_headers(client, "owner@example.com", "OwnerAa")
+    other_headers = signup_and_headers(client, "other@example.com", "OtherAa")
     owner_session_id = create_session(client, owner_headers)
     grade_id = create_grade_log(client, owner_headers, owner_session_id).json()["id"]
 
@@ -179,7 +181,7 @@ def test_other_users_grade_log_cannot_be_changed(client_and_engine, method: str)
 
 def test_missing_session_cannot_receive_grade_log(client_and_engine) -> None:
     client, _ = client_and_engine
-    headers = signup_and_headers(client, "user@example.com", "climber01")
+    headers = signup_and_headers(client, "user@example.com", "Climber01")
 
     assert create_grade_log(client, headers, 999).status_code == 404
 
@@ -194,7 +196,7 @@ def test_missing_session_cannot_receive_grade_log(client_and_engine) -> None:
 )
 def test_grade_log_rejects_invalid_counts(client_and_engine, payload) -> None:
     client, _ = client_and_engine
-    headers = signup_and_headers(client, "user@example.com", "climber01")
+    headers = signup_and_headers(client, "user@example.com", "Climber01")
     session_id = create_session(client, headers)
 
     response = client.post(

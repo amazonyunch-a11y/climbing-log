@@ -11,6 +11,9 @@ class Settings(BaseSettings):
     supabase_url: str | None = None
     supabase_storage_bucket: str | None = None
     supabase_service_role_key: str | None = None
+    resend_api_key: str | None = None
+    resend_from_email: str | None = None
+    password_reset_code_secret: str | None = None
 
     model_config = SettingsConfigDict(
         env_file=".env",

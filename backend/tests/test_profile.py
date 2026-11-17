@@ -10,6 +10,8 @@ from app.db.base import Base
 from app.db.session import get_db
 from app.main import app
 from app.models.user_profile import UserProfile
+from app.models.user import User
+from tests.auth_helpers import mark_email_verified
 
 
 @pytest.fixture
@@ -52,6 +54,7 @@ def signup(client: TestClient, email: str, nickname: str) -> int:
 
 
 def auth_headers(client: TestClient, email: str) -> dict[str, str]:
+    mark_email_verified(email)
     response = client.post(
         "/api/auth/login",
         json={"email": email, "password": "correct-password"},
@@ -62,7 +65,7 @@ def auth_headers(client: TestClient, email: str) -> dict[str, str]:
 
 def test_signup_creates_an_empty_user_profile(client_and_engine) -> None:
     client, engine = client_and_engine
-    user_id = signup(client, "user@example.com", "climber01")
+    user_id = signup(client, "user@example.com", "Climber01")
 
     with Session(engine) as db:
         profiles = db.scalars(
@@ -81,8 +84,8 @@ def test_signup_creates_an_empty_user_profile(client_and_engine) -> None:
 
 def test_get_profile_returns_only_the_authenticated_users_profile(client_and_engine) -> None:
     client, _ = client_and_engine
-    first_user_id = signup(client, "first@example.com", "first")
-    second_user_id = signup(client, "second@example.com", "second")
+    first_user_id = signup(client, "first@example.com", "FirstAa")
+    second_user_id = signup(client, "second@example.com", "SecondAa")
     first_headers = auth_headers(client, "first@example.com")
     second_headers = auth_headers(client, "second@example.com")
     assert (
@@ -95,7 +98,7 @@ def test_get_profile_returns_only_the_authenticated_users_profile(client_and_eng
     assert response.status_code == 200
     assert response.json() == {
         "user_id": second_user_id,
-        "nickname": "second",
+        "nickname": "SecondAa",
         "birth_date": None,
         "height_cm": None,
         "weight_kg": None,
@@ -111,9 +114,80 @@ def test_profile_rejects_missing_bearer_token(client_and_engine) -> None:
     assert client.patch("/api/profile", json={"height_cm": 165}).status_code == 401
 
 
+def test_profile_changes_nickname_and_keeps_other_fields(client_and_engine) -> None:
+    client, _ = client_and_engine
+    signup(client, "user@example.com", "Climber01")
+    headers = auth_headers(client, "user@example.com")
+    assert client.patch("/api/profile", headers=headers, json={"height_cm": 165}).status_code == 200
+
+    response = client.patch("/api/profile", headers=headers, json={"nickname": "  NewName1  "})
+
+    assert response.status_code == 200
+    assert response.json()["nickname"] == "NewName1"
+    assert response.json()["height_cm"] == 165
+    assert client.get("/api/auth/me", headers=headers).json()["nickname"] == "NewName1"
+
+
+def test_profile_rejects_another_users_nickname(client_and_engine) -> None:
+    client, _ = client_and_engine
+    signup(client, "first@example.com", "FirstAa")
+    signup(client, "second@example.com", "SecondAa")
+    headers = auth_headers(client, "first@example.com")
+
+    response = client.patch("/api/profile", headers=headers, json={"nickname": "SecondAa"})
+
+    assert response.status_code == 409
+    assert response.json()["detail"] == "Nickname is already taken"
+    assert client.get("/api/profile", headers=headers).json()["nickname"] == "FirstAa"
+
+
+def test_profile_accepts_own_nickname(client_and_engine) -> None:
+    client, _ = client_and_engine
+    signup(client, "user@example.com", "Climber01")
+    headers = auth_headers(client, "user@example.com")
+
+    response = client.patch("/api/profile", headers=headers, json={"nickname": "Climber01"})
+
+    assert response.status_code == 200
+    assert response.json()["nickname"] == "Climber01"
+
+
+@pytest.mark.parametrize("nickname", [None, "", "climber01", "CLIMBER01", "Ab 123", "Ab!cd1"])
+def test_profile_rejects_invalid_nickname(client_and_engine, nickname) -> None:
+    client, _ = client_and_engine
+    signup(client, "user@example.com", "Climber01")
+    headers = auth_headers(client, "user@example.com")
+
+    response = client.patch("/api/profile", headers=headers, json={"nickname": nickname})
+
+    assert response.status_code == 422
+    assert response.json()["detail"][0]["loc"] == ["body", "nickname"]
+
+
+def test_profile_race_returns_nickname_conflict(client_and_engine, monkeypatch) -> None:
+    client, engine = client_and_engine
+    signup(client, "first@example.com", "FirstAa")
+    signup(client, "second@example.com", "SecondAa")
+    headers = auth_headers(client, "first@example.com")
+    original_scalar = Session.scalar
+
+    def miss_precheck(self, statement, *args, **kwargs):
+        if "nickname" in str(statement.whereclause):
+            return None
+        return original_scalar(self, statement, *args, **kwargs)
+
+    monkeypatch.setattr(Session, "scalar", miss_precheck)
+    response = client.patch("/api/profile", headers=headers, json={"nickname": "SecondAa"})
+
+    assert response.status_code == 409
+    assert response.json()["detail"] == "Nickname is already taken"
+    with Session(engine) as db:
+        assert db.scalar(select(User).where(User.email == "first@example.com")).nickname == "FirstAa"
+
+
 def test_patch_profile_updates_only_provided_fields_and_updates_timestamp(client_and_engine) -> None:
     client, engine = client_and_engine
-    user_id = signup(client, "user@example.com", "climber01")
+    user_id = signup(client, "user@example.com", "Climber01")
     headers = auth_headers(client, "user@example.com")
     with Session(engine) as db:
         before = db.scalar(select(UserProfile).where(UserProfile.userId == user_id))
@@ -134,7 +208,7 @@ def test_patch_profile_updates_only_provided_fields_and_updates_timestamp(client
     assert response.status_code == 200
     assert response.json() == {
         "user_id": user_id,
-        "nickname": "climber01",
+        "nickname": "Climber01",
         "birth_date": "2001-01-01",
         "height_cm": 165,
         "weight_kg": 55,
@@ -157,7 +231,7 @@ def test_patch_profile_updates_only_provided_fields_and_updates_timestamp(client
 @pytest.mark.parametrize("method", ["get", "patch"])
 def test_profile_creates_a_missing_legacy_profile(client_and_engine, method: str) -> None:
     client, engine = client_and_engine
-    user_id = signup(client, "legacy@example.com", "legacy")
+    user_id = signup(client, "legacy@example.com", "LegacyAa")
     headers = auth_headers(client, "legacy@example.com")
     with Session(engine) as db:
         profile = db.scalar(select(UserProfile).where(UserProfile.userId == user_id))

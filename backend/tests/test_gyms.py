@@ -10,6 +10,7 @@ from app.db.base import Base
 from app.db.session import get_db
 from app.main import app
 from app.models.gyms import Gyms
+from tests.auth_helpers import mark_email_verified
 
 
 @pytest.fixture
@@ -44,6 +45,7 @@ def signup_and_headers(client: TestClient, email: str, nickname: str) -> dict[st
         json={"email": email, "password": "correct-password", "nickname": nickname},
     )
     assert signup.status_code == 201
+    mark_email_verified(email)
     login = client.post(
         "/api/auth/login",
         json={"email": email, "password": "correct-password"},
@@ -62,8 +64,8 @@ def create_gym(client: TestClient, headers: dict[str, str], name: str = "클라�
 
 def test_list_gyms_returns_only_current_users_gyms(client_and_engine) -> None:
     client, _ = client_and_engine
-    first_headers = signup_and_headers(client, "first@example.com", "first")
-    second_headers = signup_and_headers(client, "second@example.com", "second")
+    first_headers = signup_and_headers(client, "first@example.com", "FirstAa")
+    second_headers = signup_and_headers(client, "second@example.com", "SecondAa")
     assert create_gym(client, first_headers).status_code == 201
 
     first_response = client.get("/api/gyms", headers=first_headers)
@@ -79,7 +81,7 @@ def test_list_gyms_returns_only_current_users_gyms(client_and_engine) -> None:
 
 def test_create_and_get_gym(client_and_engine) -> None:
     client, _ = client_and_engine
-    headers = signup_and_headers(client, "user@example.com", "climber01")
+    headers = signup_and_headers(client, "user@example.com", "Climber01")
 
     created = create_gym(client, headers)
 
@@ -100,7 +102,7 @@ def test_create_and_get_gym(client_and_engine) -> None:
 
 def test_patch_gym_updates_only_supplied_fields_and_timestamp(client_and_engine) -> None:
     client, engine = client_and_engine
-    headers = signup_and_headers(client, "user@example.com", "climber01")
+    headers = signup_and_headers(client, "user@example.com", "Climber01")
     gym_id = create_gym(client, headers).json()["id"]
     with Session(engine) as db:
         gym = db.get(Gyms, gym_id)
@@ -130,7 +132,7 @@ def test_patch_gym_updates_only_supplied_fields_and_timestamp(client_and_engine)
 
 def test_delete_gym(client_and_engine) -> None:
     client, _ = client_and_engine
-    headers = signup_and_headers(client, "user@example.com", "climber01")
+    headers = signup_and_headers(client, "user@example.com", "Climber01")
     gym_id = create_gym(client, headers).json()["id"]
 
     response = client.delete(f"/api/gyms/{gym_id}", headers=headers)
@@ -143,7 +145,7 @@ def test_delete_gym(client_and_engine) -> None:
 @pytest.mark.parametrize("method", ["get", "patch", "delete"])
 def test_missing_gym_returns_not_found(client_and_engine, method: str) -> None:
     client, _ = client_and_engine
-    headers = signup_and_headers(client, "user@example.com", "climber01")
+    headers = signup_and_headers(client, "user@example.com", "Climber01")
 
     if method == "get":
         response = client.get("/api/gyms/999", headers=headers)
@@ -158,8 +160,8 @@ def test_missing_gym_returns_not_found(client_and_engine, method: str) -> None:
 @pytest.mark.parametrize("method", ["get", "patch", "delete"])
 def test_other_users_gym_returns_not_found(client_and_engine, method: str) -> None:
     client, _ = client_and_engine
-    owner_headers = signup_and_headers(client, "owner@example.com", "owner")
-    other_headers = signup_and_headers(client, "other@example.com", "other")
+    owner_headers = signup_and_headers(client, "owner@example.com", "OwnerAa")
+    other_headers = signup_and_headers(client, "other@example.com", "OtherAa")
     gym_id = create_gym(client, owner_headers).json()["id"]
 
     if method == "get":

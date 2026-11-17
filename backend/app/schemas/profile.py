@@ -1,6 +1,8 @@
 from datetime import date
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
+
+from app.core.nickname import validate_nickname
 
 
 class ProfileResponse(BaseModel):
@@ -18,3 +20,10 @@ class ProfileUpdateRequest(BaseModel):
     height_cm: int | None = None
     weight_kg: int | None = None
     arm_length_cm: int | None = None
+
+    @field_validator("nickname")
+    @classmethod
+    def check_nickname(cls, value: str | None) -> str:
+        if value is None:
+            raise ValueError("Nickname cannot be null")
+        return validate_nickname(value)

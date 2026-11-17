@@ -7,6 +7,7 @@ from starlette.testclient import TestClient
 from app.db.base import Base
 from app.db.session import get_db
 from app.main import app
+from tests.auth_helpers import mark_email_verified
 
 
 @pytest.fixture
@@ -41,6 +42,7 @@ def signup_and_headers(client: TestClient, email: str, nickname: str) -> dict[st
         json={"email": email, "password": "correct-password", "nickname": nickname},
     )
     assert signup.status_code == 201
+    mark_email_verified(email)
     login = client.post(
         "/api/auth/login",
         json={"email": email, "password": "correct-password"},
@@ -114,8 +116,8 @@ def test_calendar_rejects_missing_bearer_token(client_and_engine) -> None:
 
 def test_monthly_calendar_counts_own_sessions_by_date_in_order(client_and_engine) -> None:
     client, _ = client_and_engine
-    headers = signup_and_headers(client, "user@example.com", "climber01")
-    other_headers = signup_and_headers(client, "other@example.com", "other")
+    headers = signup_and_headers(client, "user@example.com", "Climber01")
+    other_headers = signup_and_headers(client, "other@example.com", "OtherAa")
     gym_id = create_gym(client, headers)
     other_gym_id = create_gym(client, other_headers)
     create_session(client, headers, gym_id, "2026-09-06", "2026-09-06T18:00:00Z")
@@ -134,7 +136,7 @@ def test_monthly_calendar_counts_own_sessions_by_date_in_order(client_and_engine
 
 def test_daily_calendar_aggregates_grade_logs_and_keeps_empty_grade_logs_zero(client_and_engine) -> None:
     client, _ = client_and_engine
-    headers = signup_and_headers(client, "user@example.com", "climber01")
+    headers = signup_and_headers(client, "user@example.com", "Climber01")
     gym_id = create_gym(client, headers)
     first_id = create_session(
         client, headers, gym_id, "2026-09-11", "2026-09-11T18:00:00Z", "2026-09-11T19:30:00Z"
@@ -181,7 +183,7 @@ def test_daily_calendar_returns_only_requested_date_sessions(
     client_and_engine, requested_date: str, next_date: str
 ) -> None:
     client, _ = client_and_engine
-    headers = signup_and_headers(client, "user@example.com", "climber01")
+    headers = signup_and_headers(client, "user@example.com", "Climber01")
     gym_id = create_gym(client, headers)
     requested_id = create_session(
         client, headers, gym_id, requested_date, f"{requested_date}T18:00:00Z"
@@ -201,8 +203,8 @@ def test_daily_calendar_returns_only_requested_date_sessions(
 
 def test_calendar_returns_empty_results_and_excludes_other_users_sessions(client_and_engine) -> None:
     client, _ = client_and_engine
-    headers = signup_and_headers(client, "user@example.com", "climber01")
-    other_headers = signup_and_headers(client, "other@example.com", "other")
+    headers = signup_and_headers(client, "user@example.com", "Climber01")
+    other_headers = signup_and_headers(client, "other@example.com", "OtherAa")
     other_gym_id = create_gym(client, other_headers)
     create_session(
         client, other_headers, other_gym_id, "2026-10-01", "2026-10-01T18:00:00Z"
@@ -222,7 +224,7 @@ def test_calendar_returns_empty_results_and_excludes_other_users_sessions(client
 
 def test_calendar_uses_kst_session_date_when_utc_date_is_previous_day(client_and_engine) -> None:
     client, _ = client_and_engine
-    headers = signup_and_headers(client, "user@example.com", "climber01")
+    headers = signup_and_headers(client, "user@example.com", "Climber01")
     gym_id = create_gym(client, headers)
 
     session_id = create_session(
@@ -242,7 +244,7 @@ def test_calendar_uses_kst_session_date_when_utc_date_is_previous_day(client_and
 @pytest.mark.parametrize("month", [0, 13])
 def test_calendar_rejects_out_of_range_month(client_and_engine, month: int) -> None:
     client, _ = client_and_engine
-    headers = signup_and_headers(client, "user@example.com", "climber01")
+    headers = signup_and_headers(client, "user@example.com", "Climber01")
 
     response = client.get("/api/calendar", headers=headers, params={"year": 2026, "month": month})
 
@@ -251,7 +253,7 @@ def test_calendar_rejects_out_of_range_month(client_and_engine, month: int) -> N
 
 def test_calendar_rejects_invalid_date(client_and_engine) -> None:
     client, _ = client_and_engine
-    headers = signup_and_headers(client, "user@example.com", "climber01")
+    headers = signup_and_headers(client, "user@example.com", "Climber01")
 
     response = client.get("/api/calendar/not-a-date", headers=headers)
 

@@ -28,7 +28,7 @@ def test_video_routes_reject_missing_bearer_token(client_and_engine) -> None:
 
 def test_create_and_list_videos_includes_public_file_url(client_and_engine) -> None:
     client, _ = client_and_engine
-    headers = signup_and_headers(client, "user@example.com", "climber01")
+    headers = signup_and_headers(client, "user@example.com", "Climber01")
     session_id = create_session(client, headers)
 
     created = create_video(client, headers, session_id)
@@ -53,7 +53,7 @@ def test_delete_video_removes_storage_file_then_metadata(
     client_and_engine, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     client, _ = client_and_engine
-    headers = signup_and_headers(client, "user@example.com", "climber01")
+    headers = signup_and_headers(client, "user@example.com", "Climber01")
     session_id = create_session(client, headers)
     storage_path = "videos/user-1/session-10/video-001.mp4"
     video_id = create_video(client, headers, session_id, storage_path).json()["id"]
@@ -76,7 +76,7 @@ def test_storage_delete_failure_keeps_video_metadata(
     client_and_engine, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     client, _ = client_and_engine
-    headers = signup_and_headers(client, "user@example.com", "climber01")
+    headers = signup_and_headers(client, "user@example.com", "Climber01")
     session_id = create_session(client, headers)
     video_id = create_video(client, headers, session_id).json()["id"]
 
@@ -97,7 +97,7 @@ def test_storage_delete_configuration_error_keeps_video_metadata(
     client_and_engine, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     client, _ = client_and_engine
-    headers = signup_and_headers(client, "user@example.com", "climber01")
+    headers = signup_and_headers(client, "user@example.com", "Climber01")
     session_id = create_session(client, headers)
     video_id = create_video(client, headers, session_id).json()["id"]
 
@@ -116,8 +116,8 @@ def test_storage_delete_configuration_error_keeps_video_metadata(
 
 def test_other_users_session_videos_are_not_exposed_or_created(client_and_engine) -> None:
     client, _ = client_and_engine
-    owner_headers = signup_and_headers(client, "owner@example.com", "owner")
-    other_headers = signup_and_headers(client, "other@example.com", "other")
+    owner_headers = signup_and_headers(client, "owner@example.com", "OwnerAa")
+    other_headers = signup_and_headers(client, "other@example.com", "OtherAa")
     owner_session_id = create_session(client, owner_headers)
 
     assert client.get(
@@ -130,8 +130,8 @@ def test_other_users_video_cannot_be_deleted(
     client_and_engine, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     client, _ = client_and_engine
-    owner_headers = signup_and_headers(client, "owner@example.com", "owner")
-    other_headers = signup_and_headers(client, "other@example.com", "other")
+    owner_headers = signup_and_headers(client, "owner@example.com", "OwnerAa")
+    other_headers = signup_and_headers(client, "other@example.com", "OtherAa")
     owner_session_id = create_session(client, owner_headers)
     video_id = create_video(client, owner_headers, owner_session_id).json()["id"]
     deleted_paths: list[str] = []
@@ -145,7 +145,7 @@ def test_other_users_video_cannot_be_deleted(
 
 def test_missing_session_cannot_receive_video(client_and_engine) -> None:
     client, _ = client_and_engine
-    headers = signup_and_headers(client, "user@example.com", "climber01")
+    headers = signup_and_headers(client, "user@example.com", "Climber01")
 
     assert create_video(client, headers, 999).status_code == 404
 
@@ -163,7 +163,7 @@ def test_missing_session_cannot_receive_video(client_and_engine) -> None:
 )
 def test_video_rejects_invalid_storage_path(client_and_engine, storage_path: str) -> None:
     client, _ = client_and_engine
-    headers = signup_and_headers(client, "user@example.com", "climber01")
+    headers = signup_and_headers(client, "user@example.com", "Climber01")
     session_id = create_session(client, headers)
 
     assert create_video(client, headers, session_id, storage_path).status_code == 422
@@ -171,7 +171,7 @@ def test_video_rejects_invalid_storage_path(client_and_engine, storage_path: str
 
 def test_duplicate_storage_paths_are_allowed_without_a_schema_constraint(client_and_engine) -> None:
     client, _ = client_and_engine
-    headers = signup_and_headers(client, "user@example.com", "climber01")
+    headers = signup_and_headers(client, "user@example.com", "Climber01")
     session_id = create_session(client, headers)
 
     assert create_video(client, headers, session_id).status_code == 201
@@ -181,7 +181,7 @@ def test_duplicate_storage_paths_are_allowed_without_a_schema_constraint(client_
 
 def test_session_can_have_at_most_five_videos(client_and_engine) -> None:
     client, _ = client_and_engine
-    headers = signup_and_headers(client, "user@example.com", "climber01")
+    headers = signup_and_headers(client, "user@example.com", "Climber01")
     session_id = create_session(client, headers)
 
     for index in range(5):
@@ -206,7 +206,7 @@ def test_session_can_have_at_most_five_videos(client_and_engine) -> None:
 
 def test_each_session_has_an_independent_five_video_limit(client_and_engine) -> None:
     client, _ = client_and_engine
-    headers = signup_and_headers(client, "user@example.com", "climber01")
+    headers = signup_and_headers(client, "user@example.com", "Climber01")
     first_session_id = create_session(client, headers)
     second_session_id = create_session(client, headers)
 

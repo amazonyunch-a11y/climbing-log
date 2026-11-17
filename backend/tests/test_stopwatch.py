@@ -23,7 +23,7 @@ def test_stopwatch_routes_require_bearer_token(client_and_engine) -> None:
 
 def test_start_and_get_active_stopwatch(client_and_engine) -> None:
     client, _ = client_and_engine
-    headers = signup_and_headers(client, "user@example.com", "climber01")
+    headers = signup_and_headers(client, "user@example.com", "Climber01")
 
     started = start_stopwatch(client, headers)
 
@@ -38,7 +38,7 @@ def test_start_and_get_active_stopwatch(client_and_engine) -> None:
 
 def test_get_active_returns_404_when_no_stopwatch_exists(client_and_engine) -> None:
     client, _ = client_and_engine
-    headers = signup_and_headers(client, "user@example.com", "climber01")
+    headers = signup_and_headers(client, "user@example.com", "Climber01")
 
     response = client.get("/api/stopwatch/active", headers=headers)
 
@@ -48,7 +48,7 @@ def test_get_active_returns_404_when_no_stopwatch_exists(client_and_engine) -> N
 
 def test_start_rejects_second_active_stopwatch(client_and_engine) -> None:
     client, _ = client_and_engine
-    headers = signup_and_headers(client, "user@example.com", "climber01")
+    headers = signup_and_headers(client, "user@example.com", "Climber01")
     assert start_stopwatch(client, headers).status_code == 201
 
     response = start_stopwatch(client, headers)
@@ -61,7 +61,7 @@ def test_stop_pauses_and_persists_elapsed_seconds(
     client_and_engine, monkeypatch
 ) -> None:
     client, _ = client_and_engine
-    headers = signup_and_headers(client, "user@example.com", "climber01")
+    headers = signup_and_headers(client, "user@example.com", "Climber01")
     started_at = datetime(2026, 10, 14, 1, 0, 0)
     ended_at = started_at + timedelta(seconds=3723)
     monkeypatch.setattr("app.api.stopwatch.utc_now", lambda: started_at)
@@ -87,7 +87,7 @@ def test_start_resumes_paused_stopwatch_and_preserves_first_started_at(
     client_and_engine, monkeypatch
 ) -> None:
     client, engine = client_and_engine
-    headers = signup_and_headers(client, "user@example.com", "climber01")
+    headers = signup_and_headers(client, "user@example.com", "Climber01")
     started_at = datetime(2026, 10, 14, 1, 0, 0)
     paused_at = started_at + timedelta(seconds=90)
     resumed_at = started_at + timedelta(minutes=10)
@@ -132,7 +132,7 @@ def test_finish_after_resume_returns_full_workout_timeline(
     client_and_engine, monkeypatch
 ) -> None:
     client, _ = client_and_engine
-    headers = signup_and_headers(client, "user@example.com", "climber01")
+    headers = signup_and_headers(client, "user@example.com", "Climber01")
     first_started_at = datetime(2026, 11, 2, 11, 59, 0)
     paused_at = first_started_at + timedelta(minutes=3)
     resumed_at = first_started_at + timedelta(minutes=10)
@@ -158,7 +158,7 @@ def test_reset_cancels_and_keeps_elapsed_seconds(
     client_and_engine, monkeypatch
 ) -> None:
     client, engine = client_and_engine
-    headers = signup_and_headers(client, "user@example.com", "climber01")
+    headers = signup_and_headers(client, "user@example.com", "Climber01")
     started_at = datetime(2026, 10, 14, 1, 0, 0)
     reset_at = started_at + timedelta(seconds=90)
     monkeypatch.setattr("app.api.stopwatch.utc_now", lambda: started_at)
@@ -185,7 +185,7 @@ def test_reset_cancels_and_keeps_elapsed_seconds(
 
 def test_reset_accepts_a_paused_stopwatch(client_and_engine, monkeypatch) -> None:
     client, _ = client_and_engine
-    headers = signup_and_headers(client, "user@example.com", "climber01")
+    headers = signup_and_headers(client, "user@example.com", "Climber01")
     started_at = datetime(2026, 10, 14, 1, 0, 0)
     paused_at = started_at + timedelta(seconds=60)
     monkeypatch.setattr("app.api.stopwatch.utc_now", lambda: started_at)
@@ -202,8 +202,8 @@ def test_reset_accepts_a_paused_stopwatch(client_and_engine, monkeypatch) -> Non
 
 def test_other_user_cannot_stop_stopwatch(client_and_engine) -> None:
     client, _ = client_and_engine
-    owner_headers = signup_and_headers(client, "owner@example.com", "owner")
-    other_headers = signup_and_headers(client, "other@example.com", "other")
+    owner_headers = signup_and_headers(client, "owner@example.com", "OwnerAa")
+    other_headers = signup_and_headers(client, "other@example.com", "OtherAa")
     stopwatch_id = start_stopwatch(client, owner_headers).json()["id"]
 
     assert client.patch(f"/api/stopwatch/{stopwatch_id}/stop", headers=other_headers).status_code == 404

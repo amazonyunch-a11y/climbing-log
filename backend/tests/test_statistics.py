@@ -7,6 +7,7 @@ from starlette.testclient import TestClient
 from app.db.base import Base
 from app.db.session import get_db
 from app.main import app
+from tests.auth_helpers import mark_email_verified
 
 
 @pytest.fixture
@@ -41,6 +42,7 @@ def signup_and_headers(client: TestClient, email: str, nickname: str) -> dict[st
         json={"email": email, "password": "correct-password", "nickname": nickname},
     )
     assert signup.status_code == 201
+    mark_email_verified(email)
     login = client.post(
         "/api/auth/login",
         json={"email": email, "password": "correct-password"},
@@ -149,8 +151,8 @@ def test_statistics_reject_missing_bearer_token(client_and_engine) -> None:
 
 def test_summary_monthly_and_weekly_exclude_other_users_data(client_and_engine) -> None:
     client, _ = client_and_engine
-    headers = signup_and_headers(client, "user@example.com", "climber01")
-    other_headers = signup_and_headers(client, "other@example.com", "other")
+    headers = signup_and_headers(client, "user@example.com", "Climber01")
+    other_headers = signup_and_headers(client, "other@example.com", "OtherAa")
     create_statistics_data(client, headers)
     other_gym_id = create_gym(client, other_headers, "다른 사용자 암장")
     other_session_id = create_session(
@@ -187,7 +189,7 @@ def test_summary_monthly_and_weekly_exclude_other_users_data(client_and_engine) 
 
 def test_grade_and_gym_statistics_for_monthly_and_weekly_periods(client_and_engine) -> None:
     client, _ = client_and_engine
-    headers = signup_and_headers(client, "user@example.com", "climber01")
+    headers = signup_and_headers(client, "user@example.com", "Climber01")
     first_gym_id, second_gym_id = create_statistics_data(client, headers)
     monthly_params = {"period": "monthly", "year": 2026, "month": 9}
     weekly_params = {"period": "weekly", "start_date": "2026-09-03"}
@@ -220,7 +222,7 @@ def test_grade_and_gym_statistics_for_monthly_and_weekly_periods(client_and_engi
 
 def test_statistics_return_zero_or_empty_results_for_empty_period(client_and_engine) -> None:
     client, _ = client_and_engine
-    headers = signup_and_headers(client, "user@example.com", "climber01")
+    headers = signup_and_headers(client, "user@example.com", "Climber01")
     params = {"period": "monthly", "year": 2026, "month": 12}
 
     summary = client.get("/api/statistics/summary", headers=headers, params=params)
@@ -255,7 +257,7 @@ def test_statistics_return_zero_or_empty_results_for_empty_period(client_and_eng
 )
 def test_statistics_reject_invalid_period_parameters(client_and_engine, params) -> None:
     client, _ = client_and_engine
-    headers = signup_and_headers(client, "user@example.com", "climber01")
+    headers = signup_and_headers(client, "user@example.com", "Climber01")
 
     response = client.get("/api/statistics/summary", headers=headers, params=params)
 

@@ -22,6 +22,7 @@ frontend/  Expo/React Native 모바일 앱
 - Expo Go 또는 iOS/Android 개발 환경
 - 영상 기능을 사용할 경우 Supabase 프로젝트
 - 암장 장소 검색을 사용할 경우 Kakao Developers 앱과 JavaScript 키
+- 이메일 인증과 비밀번호 재설정을 사용할 경우 Resend 발송 계정과 인증된 발신 주소
 
 ## 1. Backend 실행
 
@@ -88,6 +89,9 @@ Backend 전용:
 | `SUPABASE_URL` | Supabase 프로젝트 URL |
 | `SUPABASE_STORAGE_BUCKET` | 영상 bucket 이름 |
 | `SUPABASE_SERVICE_ROLE_KEY` | Storage 삭제 전용 서버 비밀키 |
+| `RESEND_API_KEY` | 이메일 인증·비밀번호 재설정 발송용 서버 비밀키 |
+| `RESEND_FROM_EMAIL` | Resend에서 인증된 발신 주소 |
+| `PASSWORD_RESET_CODE_SECRET` | 인증번호 해시용 별도 서버 비밀키 |
 
 Frontend 공개 설정:
 
@@ -109,6 +113,8 @@ Frontend 공개 설정:
 6. `SUPABASE_SERVICE_ROLE_KEY`는 오직 `backend/.env`에만 설정합니다. 백엔드는 사용자 소유권을 확인한 뒤 이 키로 Storage 파일을 삭제합니다.
 
 현재 MVP는 Supabase Auth를 사용하지 않습니다. 따라서 anon 업로드 정책은 테스트/MVP 용도로만 최소 범위로 제한하고, 운영 전에는 signed upload URL 또는 서버 중계 업로드 방식으로 강화하는 것을 권장합니다.
+
+이메일 인증과 비밀번호 재설정은 Resend로 발송합니다. 발신 주소를 Resend에서 인증한 뒤 Backend 전용 환경변수 세 가지를 설정하세요. 실제 키와 해시 비밀값은 README나 Frontend 환경변수에 넣지 않습니다.
 
 ## Kakao 지도 장소 검색 설정
 
@@ -147,7 +153,10 @@ npm run typecheck
 
 ## 구현된 MVP 기능
 
-- 이메일 회원가입, 로그인, 로그아웃과 JWT 인증
+- 이메일 회원가입·인증, 로그인·로그아웃과 JWT 인증
+- 이메일 인증번호를 이용한 비밀번호 재설정과 이전 JWT 무효화
+- 닉네임 형식·중복 검증과 회원가입 비밀번호 확인
+- Profile 닉네임·생년월일·키·몸무게·팔 리치 수정
 - 암장 등록, 조회, 수정, 삭제
 - Calendar 월간 기록 표시와 날짜별 세션 조회
 - 운동 세션 생성, 상세 조회, 수정, 삭제
@@ -160,24 +169,25 @@ npm run typecheck
 
 ## 미구현 또는 향후 확장
 
-- 비밀번호 재설정, 이메일 인증, refresh token, 소셜 로그인
-- 회원가입 중복 확인 및 비밀번호 확인 입력, Profile 비밀번호 변경과 신체 정보 입력 UX 고도화
+- Profile에서 비밀번호 재설정 화면으로 이동하는 계정 관리 UI
+- refresh token, 소셜 로그인
 - Stopwatch 기록 이력 화면과 수동 연결 관리 고도화
 - 영상 지연 삭제, soft delete, 정리 scheduler
 - private bucket과 signed URL 기반 영상 접근
 - Supabase Auth 연동 또는 더 안전한 업로드 권한 모델
 - push notification, 오프라인 동기화
 - frontend 단위/E2E 테스트와 CI/CD
-- 운영 배포용 로깅, 모니터링, rate limiting
+- 운영 배포용 로깅·모니터링 및 다중 서버 환경의 rate limiting
 
 ## 보안 체크
 
 - `backend/.env`와 `frontend/.env`는 커밋하지 않습니다.
-- service-role key, DB URL, JWT secret은 서버 환경에만 둡니다.
+- service-role key, DB URL, JWT secret, Resend key와 인증번호 해시 secret은 서버 환경에만 둡니다.
 - GitHub push 전 `git status`와 `git ls-files`로 `.env` 포함 여부를 다시 확인합니다.
 
 ## Release History
 
 - **v0.1.0 (2026-10-16):** 초기 MVP. 기준 커밋 `ba3f1f4efd9c34604fbc502b45359caf3c3dba77`.
 - **v0.2.0 (2026-11-07):** 카카오 지도 암장 검색과 Stopwatch–Session 연동. 자세한 내용은 [CHANGELOG.md](CHANGELOG.md)를 참고하세요.
-- **Next:** Auth/Profile 입력과 계정 관리 고도화.
+- **v0.3.0 (2026-11-17):** 이메일 인증·비밀번호 재설정과 닉네임·Profile 입력 고도화. 자세한 내용은 [CHANGELOG.md](CHANGELOG.md)를 참고하세요.
+- **Next:** Profile 비밀번호 변경 진입 UI와 실기기 이메일 흐름 검증.

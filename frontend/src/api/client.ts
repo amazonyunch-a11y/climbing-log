@@ -22,7 +22,9 @@ export function setUnauthorizedHandler(handler: (() => void | Promise<void>) | u
 async function getErrorMessage(response: Response): Promise<string> {
   try {
     const payload: unknown = await response.json();
-    if (typeof payload === 'object' && payload !== null && 'detail' in payload) {
+    if (typeof payload === 'object' && payload !== null) {
+      const message = (payload as { message?: unknown }).message;
+      if (typeof message === 'string') return message;
       const detail = (payload as { detail?: unknown }).detail;
       if (typeof detail === 'string') return detail;
     }
